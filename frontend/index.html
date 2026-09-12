@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Retinova — Diabetic Retinopathy Screening</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="shell">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="20" cy="20" r="19" stroke="#5FE3C4" stroke-width="2"/>
+        <circle cx="20" cy="20" r="11" stroke="#5FE3C4" stroke-width="2"/>
+        <circle cx="20" cy="20" r="4" fill="#5FE3C4"/>
+      </svg>
+      <div class="brand-text">
+        <span class="brand-name">Retinova</span>
+        <span class="brand-sub">DR Screening</span>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <a href="#dashboard" data-route="dashboard" class="nav-link">Dashboard</a>
+      <a href="#register" data-route="register" class="nav-link">Register patient</a>
+      <a href="#screen" data-route="screen" class="nav-link">Screen a patient</a>
+      <a href="#records" data-route="records" class="nav-link">Records</a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="api-status">
+        <span class="dot" id="api-dot"></span>
+        <span id="api-status-text">Checking API…</span>
+      </div>
+      <span class="sidebar-footnote">SIH26038 · Explainable AI for Rural DR Screening</span>
+    </div>
+  </aside>
+
+  <main class="content">
+    <div id="view" class="view"></div>
+  </main>
+
+</div>
+
+<template id="tpl-toast">
+  <div class="toast"></div>
+</template>
+
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

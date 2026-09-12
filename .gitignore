@@ -1,0 +1,32 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Environment variables / secrets
+.env
+
+# Local database
+*.db
+*.sqlite3
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Model weights (track large files with Git LFS instead, see README)
+*.h5
+*.pt
+*.pth
+*.onnx
+*.mat
+
+# Logs
+*.log
+uploads/
