@@ -1,7 +1,10 @@
 import os
+from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import sessionmaker
+
+load_dotenv()  # reads .env into environment variables, if the file exists
 
 # Reads DATABASE_URL from environment if set, otherwise falls back to a local
 # SQLite file. Swap this for a Postgres URL in production, e.g.:

@@ -12,7 +12,7 @@
 
 <div class="shell">
 
-  <aside class="sidebar">
+  <aside class="sidebar" id="sidebar">
     <div class="brand">
       <svg class="brand-mark" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
         <circle cx="20" cy="20" r="19" stroke="#5FE3C4" stroke-width="2"/>
@@ -25,14 +25,10 @@
       </div>
     </div>
 
-    <nav class="nav">
-      <a href="#dashboard" data-route="dashboard" class="nav-link">Dashboard</a>
-      <a href="#register" data-route="register" class="nav-link">Register patient</a>
-      <a href="#screen" data-route="screen" class="nav-link">Screen a patient</a>
-      <a href="#records" data-route="records" class="nav-link">Records</a>
-    </nav>
+    <nav class="nav" id="nav-links"></nav>
 
     <div class="sidebar-footer">
+      <div class="user-chip" id="user-chip" style="display:none"></div>
       <div class="api-status">
         <span class="dot" id="api-dot"></span>
         <span id="api-status-text">Checking API…</span>
@@ -52,6 +48,7 @@
 </template>
 
 <script src="config.js"></script>
+<script src="js/auth.js"></script>
 <script src="js/api.js"></script>
 <script src="js/app.js"></script>
 </body>

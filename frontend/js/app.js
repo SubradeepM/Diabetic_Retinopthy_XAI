@@ -6,7 +6,20 @@ const SEVERITY = {
   4: { label: "Proliferative DR", color: "var(--sev-4)", badge: "badge-danger"  },
 };
 
+// Small line icons (stroke-based, matches the brand mark's stroke style).
+const ICONS = {
+  dashboard: `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>`,
+  addPatient: `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6"/><path d="M18 8v6M15 11h6"/></svg>`,
+  screen: `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.5"/><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/></svg>`,
+  records: `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"/><path d="M9 12h7M9 16h7M9 8h3"/></svg>`,
+  patients: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6"/><circle cx="17" cy="8" r="2.8"/><path d="M15.5 14.2c2.6.4 4.5 2.5 4.5 5.8"/></svg>`,
+  images: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="15" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5.5-5-9.5 8"/></svg>`,
+  referral: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v6m0 0-3-3m3 3 3-3"/><path d="M4 13v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6"/></svg>`,
+  emptyTray: `<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13h4l2 3h6l2-3h4"/><path d="M5.5 6h13l1.5 7v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-6l1.5-7Z"/></svg>`,
+};
+
 const viewEl = document.getElementById("view");
+const bodyEl = document.body;
 
 function toast(message, isError = false) {
   const el = document.createElement("div");
@@ -24,15 +37,71 @@ function formatDate(iso) {
   });
 }
 
+function apiErrorState(e) {
+  return `<div class="empty-state">
+    <div class="empty-state-title">Can't reach the API</div>
+    <div>${e.message || "Make sure the backend is running at " + API_BASE}</div>
+  </div>`;
+}
+
 // ---------------------------------------------------------------------------
-// Router
+// Nav definitions per role
 // ---------------------------------------------------------------------------
+const DOCTOR_NAV = [
+  { route: "dashboard", label: "Dashboard", icon: "dashboard" },
+  { route: "add-patient", label: "Add patient", icon: "addPatient" },
+  { route: "screen", label: "Screen a patient", icon: "screen" },
+  { route: "records", label: "Records", icon: "records" },
+];
+const PATIENT_NAV = [
+  { route: "my-screenings", label: "My screenings", icon: "screen" },
+];
+
 const routes = {
+  login: renderLogin,
+  signup: renderSignup,
   dashboard: renderDashboard,
-  register: renderRegister,
+  "add-patient": renderAddPatient,
   screen: renderScreen,
   records: renderRecords,
+  "my-screenings": renderMyScreenings,
 };
+
+const DOCTOR_ROUTES = new Set(["dashboard", "add-patient", "screen", "records"]);
+const PATIENT_ROUTES = new Set(["my-screenings"]);
+
+function renderSidebar() {
+  const loggedIn = auth.isLoggedIn();
+  const sidebar = document.getElementById("sidebar");
+  const navEl = document.getElementById("nav-links");
+  const userChip = document.getElementById("user-chip");
+
+  if (!loggedIn) {
+    sidebar.style.display = "none";
+    return;
+  }
+  sidebar.style.display = "flex";
+
+  const data = auth.get();
+  const items = data.role === "doctor" ? DOCTOR_NAV : PATIENT_NAV;
+  navEl.innerHTML = items
+    .map((i) => `<a href="#${i.route}" data-route="${i.route}" class="nav-link">${ICONS[i.icon] || ""}<span>${i.label}</span></a>`)
+    .join("");
+
+  userChip.style.display = "flex";
+  userChip.innerHTML = `
+    <div>
+      <div class="user-chip-name">${data.full_name || "Account"}</div>
+      <div class="user-chip-role">${data.role}</div>
+    </div>
+    <button class="user-chip-logout" id="btn-logout">Log out</button>
+  `;
+  document.getElementById("btn-logout").addEventListener("click", () => {
+    auth.clear();
+    location.hash = "#login";
+    navigate();
+  });
+}
 
 function setActiveNav(route) {
   document.querySelectorAll(".nav-link").forEach((a) => {
@@ -42,7 +111,33 @@ function setActiveNav(route) {
 
 function navigate() {
   const hash = (location.hash || "#dashboard").replace("#", "");
-  const route = routes[hash] ? hash : "dashboard";
+  const loggedIn = auth.isLoggedIn();
+
+  renderSidebar();
+
+  // Not logged in: only login/signup are reachable.
+  if (!loggedIn) {
+    const route = hash === "signup" ? "signup" : "login";
+    bodyEl.classList.add("auth-mode");
+    routes[route]();
+    return;
+  }
+  bodyEl.classList.remove("auth-mode");
+
+  // Logged in: bounce away from login/signup, and away from routes that
+  // don't belong to this account's role.
+  const data = auth.get();
+  let route = hash;
+  if (route === "login" || route === "signup" || !routes[route]) {
+    route = data.role === "doctor" ? "dashboard" : "my-screenings";
+  }
+  if (data.role === "doctor" && PATIENT_ROUTES.has(route) && !DOCTOR_ROUTES.has(route)) {
+    route = "dashboard";
+  }
+  if (data.role === "patient" && DOCTOR_ROUTES.has(route)) {
+    route = "my-screenings";
+  }
+
   setActiveNav(route);
   routes[route]();
 }
@@ -57,6 +152,7 @@ window.addEventListener("DOMContentLoaded", () => {
 async function pollHealth() {
   const dot = document.getElementById("api-dot");
   const text = document.getElementById("api-status-text");
+  if (!dot) return;
   try {
     await api.health();
     dot.className = "dot online";
@@ -68,7 +164,195 @@ async function pollHealth() {
 }
 
 // ---------------------------------------------------------------------------
-// Dashboard
+// Login / signup
+// ---------------------------------------------------------------------------
+function authShell(innerHtml) {
+  viewEl.innerHTML = `
+    <div class="auth-shell">
+      <div class="auth-hero">
+        <svg class="auth-hero-illustration" viewBox="0 0 320 320" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="160" cy="160" r="140" stroke="#0F5058" stroke-width="1.5"/>
+          <circle class="ring-draw" cx="160" cy="160" r="140" stroke="#5FE3C4" stroke-width="1.5" stroke-dasharray="300" pathLength="300"/>
+          <circle class="ring-draw ring-2" cx="160" cy="160" r="98" stroke="#5FE3C4" stroke-width="1.5" opacity="0.7" stroke-dasharray="300" pathLength="300"/>
+          <circle class="ring-draw ring-3" cx="160" cy="160" r="58" stroke="#5FE3C4" stroke-width="1.5" opacity="0.5" stroke-dasharray="300" pathLength="300"/>
+          <circle cx="160" cy="160" r="22" fill="#5FE3C4" opacity="0.9"/>
+          <path class="vessel-draw" d="M160 160 C 130 130, 90 120, 55 95" stroke="#F2B84B" stroke-width="2" stroke-linecap="round" fill="none" pathLength="220" stroke-dasharray="220"/>
+          <path class="vessel-draw" d="M160 160 C 195 125, 230 118, 262 88" stroke="#5FE3C4" stroke-width="1.5" stroke-linecap="round" fill="none" opacity="0.6" pathLength="220" stroke-dasharray="220"/>
+          <path class="vessel-draw" d="M160 160 C 180 200, 215 220, 250 235" stroke="#5FE3C4" stroke-width="1.5" stroke-linecap="round" fill="none" opacity="0.6" pathLength="220" stroke-dasharray="220"/>
+          <path class="vessel-draw" d="M160 160 C 125 195, 100 215, 65 228" stroke="#5FE3C4" stroke-width="1.5" stroke-linecap="round" fill="none" opacity="0.6" pathLength="220" stroke-dasharray="220"/>
+        </svg>
+        <div class="auth-hero-text">
+          <p class="auth-hero-title">Explainable AI-assisted DR screening</p>
+          <p class="auth-hero-desc">Helping frontline health workers and doctors catch diabetic retinopathy earlier, closer to home.</p>
+        </div>
+      </div>
+      <div class="auth-form-panel">
+        <div class="auth-card">${innerHtml}</div>
+      </div>
+    </div>`;
+}
+
+function renderLogin() {
+  authShell(`
+    <div class="auth-brand">
+      <svg width="30" height="30" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="20" cy="20" r="19" stroke="#028090" stroke-width="2"/>
+        <circle cx="20" cy="20" r="11" stroke="#028090" stroke-width="2"/>
+        <circle cx="20" cy="20" r="4" fill="#028090"/>
+      </svg>
+      <span>Retinova</span>
+    </div>
+    <h1 class="auth-title">Log in</h1>
+    <p class="auth-desc">For registered patients and doctors.</p>
+    <div id="auth-error"></div>
+    <div class="field">
+      <label for="li-email">Email</label>
+      <input id="li-email" type="email" placeholder="you@example.com" />
+    </div>
+    <div class="field">
+      <label for="li-password">Password</label>
+      <input id="li-password" type="password" placeholder="••••••••" />
+    </div>
+    <button class="btn btn-primary" id="btn-login" style="width:100%">Log in</button>
+    <div class="auth-switch">Don't have an account? <a href="#signup">Sign up</a></div>
+  `);
+
+  document.getElementById("btn-login").addEventListener("click", async () => {
+    const email = document.getElementById("li-email").value.trim();
+    const password = document.getElementById("li-password").value;
+    const errEl = document.getElementById("auth-error");
+    errEl.innerHTML = "";
+
+    if (!email || !password) {
+      errEl.innerHTML = `<div class="auth-error">Enter your email and password</div>`;
+      return;
+    }
+    const btn = document.getElementById("btn-login");
+    btn.disabled = true;
+    btn.textContent = "Logging in…";
+    try {
+      const result = await api.login({ email, password });
+      auth.save(result);
+      toast(`Welcome back, ${result.full_name || "there"}`);
+      location.hash = result.role === "doctor" ? "#dashboard" : "#my-screenings";
+      navigate();
+    } catch (e) {
+      errEl.innerHTML = `<div class="auth-error">${e.message}</div>`;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Log in";
+    }
+  });
+}
+
+function renderSignup() {
+  let role = "patient";
+  authShell(`<div id="signup-form-inner"></div>`);
+
+  function draw() {
+    document.getElementById("signup-form-inner").innerHTML = `
+      <div class="auth-brand">
+        <svg width="30" height="30" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="20" cy="20" r="19" stroke="#028090" stroke-width="2"/>
+          <circle cx="20" cy="20" r="11" stroke="#028090" stroke-width="2"/>
+          <circle cx="20" cy="20" r="4" fill="#028090"/>
+        </svg>
+        <span>Retinova</span>
+      </div>
+      <h1 class="auth-title">Create an account</h1>
+      <p class="auth-desc">Sign up as a patient, or as a doctor with an access code.</p>
+      <div id="auth-error"></div>
+
+      <div class="role-toggle">
+        <button type="button" id="role-patient" class="${role === "patient" ? "active" : ""}">Patient</button>
+        <button type="button" id="role-doctor" class="${role === "doctor" ? "active" : ""}">Doctor</button>
+      </div>
+
+      <div class="field">
+        <label for="su-name">Full name</label>
+        <input id="su-name" type="text" placeholder="e.g. Asha Devi" />
+      </div>
+      <div class="field">
+        <label for="su-email">Email</label>
+        <input id="su-email" type="email" placeholder="you@example.com" />
+      </div>
+      <div class="field">
+        <label for="su-password">Password</label>
+        <input id="su-password" type="password" placeholder="At least 8 characters" />
+      </div>
+
+      ${role === "patient" ? `
+      <div class="field-row">
+        <div class="field">
+          <label for="su-age">Age</label>
+          <input id="su-age" type="number" min="0" max="120" placeholder="e.g. 55" />
+        </div>
+        <div class="field">
+          <label for="su-gender">Gender</label>
+          <select id="su-gender">
+            <option value="">Not specified</option>
+            <option value="F">Female</option>
+            <option value="M">Male</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+      </div>` : `
+      <div class="field">
+        <label for="su-doctor-code">Doctor access code</label>
+        <input id="su-doctor-code" type="text" placeholder="Provided by your clinic administrator" />
+      </div>`}
+
+      <button class="btn btn-primary" id="btn-signup" style="width:100%">Create account</button>
+      <div class="auth-switch">Already have an account? <a href="#login">Log in</a></div>
+    `;
+
+    document.getElementById("role-patient").addEventListener("click", () => { role = "patient"; draw(); });
+    document.getElementById("role-doctor").addEventListener("click", () => { role = "doctor"; draw(); });
+
+    document.getElementById("btn-signup").addEventListener("click", async () => {
+      const full_name = document.getElementById("su-name").value.trim();
+      const email = document.getElementById("su-email").value.trim();
+      const password = document.getElementById("su-password").value;
+      const errEl = document.getElementById("auth-error");
+      errEl.innerHTML = "";
+
+      if (!full_name || !email || !password) {
+        errEl.innerHTML = `<div class="auth-error">Fill in your name, email, and password</div>`;
+        return;
+      }
+
+      const payload = { full_name, email, password, role };
+      if (role === "patient") {
+        const age = document.getElementById("su-age").value;
+        payload.age = age ? parseInt(age, 10) : null;
+        payload.gender = document.getElementById("su-gender").value || null;
+      } else {
+        payload.doctor_code = document.getElementById("su-doctor-code").value.trim();
+      }
+
+      const btn = document.getElementById("btn-signup");
+      btn.disabled = true;
+      btn.textContent = "Creating account…";
+      try {
+        const result = await api.register(payload);
+        auth.save(result);
+        toast(`Welcome, ${result.full_name || "there"}`);
+        location.hash = result.role === "doctor" ? "#dashboard" : "#my-screenings";
+        navigate();
+      } catch (e) {
+        errEl.innerHTML = `<div class="auth-error">${e.message}</div>`;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Create account";
+      }
+    });
+  }
+
+  draw();
+}
+
+// ---------------------------------------------------------------------------
+// Dashboard (doctor)
 // ---------------------------------------------------------------------------
 async function renderDashboard() {
   viewEl.innerHTML = `
@@ -77,9 +361,9 @@ async function renderDashboard() {
       <p class="page-desc">A snapshot of screening activity across all registered patients.</p>
     </div>
     <div class="stat-grid" id="stat-grid">
-      ${statCardSkeleton("Registered patients")}
-      ${statCardSkeleton("Images screened")}
-      ${statCardSkeleton("Referable cases")}
+      ${statCardSkeleton("Registered patients", "patients")}
+      ${statCardSkeleton("Images screened", "images")}
+      ${statCardSkeleton("Referable cases", "referral")}
     </div>
     <div class="card">
       <h2 class="card-title">Recent screenings</h2>
@@ -97,9 +381,9 @@ async function renderDashboard() {
 
     const referable = predictions.filter((p) => p.referable).length;
     document.getElementById("stat-grid").innerHTML = `
-      ${statCard(patients.length, "Registered patients")}
-      ${statCard(images.length, "Images screened")}
-      ${statCard(referable, "Referable cases")}
+      ${statCard(patients.length, "Registered patients", "patients")}
+      ${statCard(images.length, "Images screened", "images")}
+      ${statCard(referable, "Referable cases", "referral")}
     `;
 
     const imageById = Object.fromEntries(images.map((i) => [i.image_id, i]));
@@ -107,7 +391,7 @@ async function renderDashboard() {
       document.getElementById("recent-table"),
       predictions.slice(0, 8),
       imageById,
-      "No screenings yet — register a patient and run a screening to see results here."
+      "No screenings yet — add a patient and run a screening to see results here."
     );
   } catch (e) {
     document.getElementById("stat-grid").innerHTML = "";
@@ -115,23 +399,16 @@ async function renderDashboard() {
   }
 }
 
-function statCardSkeleton(label) {
-  return `<div class="stat-card"><div class="stat-value">—</div><div class="stat-label">${label}</div></div>`;
+function statCardSkeleton(label, icon) {
+  return `<div class="stat-card"><div class="stat-icon">${ICONS[icon]}</div><div class="stat-value">—</div><div class="stat-label">${label}</div></div>`;
 }
-function statCard(value, label) {
-  return `<div class="stat-card"><div class="stat-value">${value}</div><div class="stat-label">${label}</div></div>`;
-}
-
-function apiErrorState(e) {
-  return `<div class="empty-state">
-    <div class="empty-state-title">Can't reach the API</div>
-    <div>${e.message || "Make sure the backend is running at " + API_BASE}</div>
-  </div>`;
+function statCard(value, label, icon) {
+  return `<div class="stat-card"><div class="stat-icon">${ICONS[icon]}</div><div class="stat-value">${value}</div><div class="stat-label">${label}</div></div>`;
 }
 
 function renderPredictionsTable(container, predictions, imageById, emptyMessage) {
   if (!predictions.length) {
-    container.innerHTML = `<div class="empty-state"><div class="empty-state-title">Nothing here yet</div><div>${emptyMessage}</div></div>`;
+    container.innerHTML = `<div class="empty-state">${ICONS.emptyTray}<div class="empty-state-title">Nothing here yet</div><div>${emptyMessage}</div></div>`;
     return;
   }
   const rows = predictions.map((p) => {
@@ -157,13 +434,13 @@ function renderPredictionsTable(container, predictions, imageById, emptyMessage)
 }
 
 // ---------------------------------------------------------------------------
-// Register patient
+// Add patient (doctor manually registers a walk-in patient without an account)
 // ---------------------------------------------------------------------------
-function renderRegister() {
+function renderAddPatient() {
   viewEl.innerHTML = `
     <div class="page-header">
-      <h1 class="page-title">Register patient</h1>
-      <p class="page-desc">Add a patient record before uploading fundus images for screening.</p>
+      <h1 class="page-title">Add patient</h1>
+      <p class="page-desc">Manually add a walk-in patient who doesn't have their own login. They'll be identified by the patient ID you choose here.</p>
     </div>
     <div class="card" style="max-width:480px">
       <div class="field">
@@ -185,7 +462,7 @@ function renderRegister() {
           </select>
         </div>
       </div>
-      <button class="btn btn-primary" id="btn-register">Register patient</button>
+      <button class="btn btn-primary" id="btn-register">Add patient</button>
     </div>
   `;
 
@@ -195,13 +472,13 @@ function renderRegister() {
     const gender = document.getElementById("f-gender").value || null;
 
     if (!patient_id) {
-      toast("Enter a patient ID before registering", true);
+      toast("Enter a patient ID before adding", true);
       return;
     }
 
     const btn = document.getElementById("btn-register");
     btn.disabled = true;
-    btn.textContent = "Registering…";
+    btn.textContent = "Adding…";
 
     try {
       await api.createPatient({
@@ -209,21 +486,21 @@ function renderRegister() {
         age: ageVal ? parseInt(ageVal, 10) : null,
         gender,
       });
-      toast(`Patient ${patient_id} registered`);
+      toast(`Patient ${patient_id} added`);
       document.getElementById("f-id").value = "";
       document.getElementById("f-age").value = "";
       document.getElementById("f-gender").value = "";
     } catch (e) {
-      toast(e.message || "Could not register patient", true);
+      toast(e.message || "Could not add patient", true);
     } finally {
       btn.disabled = false;
-      btn.textContent = "Register patient";
+      btn.textContent = "Add patient";
     }
   });
 }
 
 // ---------------------------------------------------------------------------
-// Screen a patient
+// Screen a patient (doctor)
 // ---------------------------------------------------------------------------
 let selectedFile = null;
 let currentImage = null;
@@ -237,7 +514,7 @@ async function renderScreen() {
 
     <div class="card">
       <h2 class="card-title">1. Choose patient</h2>
-      <p class="card-desc">Select from registered patients, or register a new one first.</p>
+      <p class="card-desc">Select from registered patients, or add a new one first.</p>
       <select class="select-inline" id="patient-select" style="width:100%"></select>
     </div>
 
@@ -376,7 +653,7 @@ function renderResult(container, result) {
 }
 
 // ---------------------------------------------------------------------------
-// Records
+// Records (doctor)
 // ---------------------------------------------------------------------------
 async function renderRecords() {
   viewEl.innerHTML = `
@@ -401,4 +678,107 @@ async function renderRecords() {
   } catch (e) {
     document.getElementById("records-table").innerHTML = apiErrorState(e);
   }
+}
+
+// ---------------------------------------------------------------------------
+// My screenings (patient's own view)
+// ---------------------------------------------------------------------------
+let patientSelectedFile = null;
+
+async function renderMyScreenings() {
+  viewEl.innerHTML = `
+    <div class="page-header">
+      <h1 class="page-title">My screenings</h1>
+      <p class="page-desc">Your profile and diabetic retinopathy screening history.</p>
+    </div>
+    <div class="card" id="profile-card"></div>
+
+    <div class="card">
+      <h2 class="card-title">Upload a new fundus image</h2>
+      <p class="card-desc">Bring a photo taken at a screening camp or clinic. A doctor will review it and run the classification.</p>
+      <label class="dropzone" id="dropzone">
+        <div class="dropzone-title">Click to choose an image, or drag it here</div>
+        <div class="dropzone-desc">A clear, centred fundus photo gives the most reliable result</div>
+        <input type="file" id="file-input" accept="image/*" />
+      </label>
+      <div id="preview-area"></div>
+      <button class="btn btn-primary" id="btn-upload" style="margin-top:16px" disabled>Upload image</button>
+    </div>
+
+    <div class="card">
+      <h2 class="card-title">My screening history</h2>
+      <div id="my-table"></div>
+    </div>
+  `;
+
+  patientSelectedFile = null;
+  let patientId = null;
+
+  try {
+    const summary = await api.mySummary();
+    patientId = summary.patient.patient_id;
+
+    document.getElementById("profile-card").innerHTML = `
+      <h2 class="card-title">Profile</h2>
+      <p class="card-desc" style="margin-bottom:0">
+        Patient ID <strong>${summary.patient.patient_id}</strong>
+        ${summary.patient.age ? " · Age " + summary.patient.age : ""}
+        ${summary.patient.gender ? " · " + summary.patient.gender : ""}
+      </p>
+    `;
+
+    const imageById = Object.fromEntries(summary.images.map((i) => [i.image_id, i]));
+    renderPredictionsTable(
+      document.getElementById("my-table"),
+      summary.predictions,
+      imageById,
+      "Upload a fundus image below to get your first screening result."
+    );
+  } catch (e) {
+    document.getElementById("profile-card").innerHTML = apiErrorState(e);
+  }
+
+  const dropzone = document.getElementById("dropzone");
+  const fileInput = document.getElementById("file-input");
+  const uploadBtn = document.getElementById("btn-upload");
+
+  dropzone.addEventListener("dragover", (ev) => { ev.preventDefault(); dropzone.classList.add("drag"); });
+  dropzone.addEventListener("dragleave", () => dropzone.classList.remove("drag"));
+  dropzone.addEventListener("drop", (ev) => {
+    ev.preventDefault();
+    dropzone.classList.remove("drag");
+    if (ev.dataTransfer.files.length) handleFile(ev.dataTransfer.files[0]);
+  });
+  fileInput.addEventListener("change", () => {
+    if (fileInput.files.length) handleFile(fileInput.files[0]);
+  });
+
+  function handleFile(file) {
+    patientSelectedFile = file;
+    const url = URL.createObjectURL(file);
+    document.getElementById("preview-area").innerHTML = `
+      <div class="preview-row">
+        <img class="preview-thumb" src="${url}" />
+        <div class="preview-meta"><strong>${file.name}</strong><br>${(file.size / 1024).toFixed(0)} KB</div>
+      </div>`;
+    uploadBtn.disabled = false;
+  }
+
+  uploadBtn.addEventListener("click", async () => {
+    if (!patientId) { toast("Could not find your patient profile", true); return; }
+    if (!patientSelectedFile) { toast("Choose an image to upload", true); return; }
+
+    uploadBtn.disabled = true;
+    uploadBtn.textContent = "Uploading…";
+    try {
+      await api.uploadImage(patientId, patientSelectedFile);
+      toast("Image uploaded — a doctor will review it");
+      renderMyScreenings();
+    } catch (e) {
+      toast(e.message || "Upload failed", true);
+    } finally {
+      uploadBtn.disabled = false;
+      uploadBtn.textContent = "Upload image";
+    }
+  });
 }

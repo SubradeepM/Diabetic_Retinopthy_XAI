@@ -38,6 +38,22 @@ retinova-backend/
 └── README.md
 ```
 
+## Authentication
+
+Both patients and doctors have their own accounts.
+
+- **Patients** self-register (name, email, password, age, gender) and can only
+  ever see their own profile and screening history.
+- **Doctors** register with an extra **doctor access code** — a stand-in for
+  real medical-credential verification, since this backend can't check a
+  license on its own. Set your own code via the `DOCTOR_SIGNUP_CODE`
+  environment variable (see `.env.example`) and only share it with genuine
+  clinicians. Doctors can see all patients, all screenings, and run
+  classifications.
+- Sessions are JWT tokens (7-day expiry), signed with `JWT_SECRET_KEY` — set
+  this to a long random value before deploying anywhere public.
+- Passwords are hashed with bcrypt; nothing is ever stored in plain text.
+
 ## Backend setup
 
 1. Clone the repo and enter it:
