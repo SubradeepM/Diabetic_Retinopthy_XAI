@@ -65,7 +65,15 @@ const api = {
   },
 
   predict: (imageId) => request(`/images/${imageId}/predict`, { method: "POST" }),
+  getImagePredictions: (imageId) => request(`/images/${imageId}/predictions`),
   listAllPredictions: () => request("/predictions"),
 
   imageUrl: (filename) => `${API_BASE}/uploads/${filename}`,
+
+  chat: (message, history) =>
+    request("/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message, history: history || [] }),
+    }),
 };

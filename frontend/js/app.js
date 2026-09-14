@@ -16,7 +16,68 @@ const ICONS = {
   images: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="15" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5.5-5-9.5 8"/></svg>`,
   referral: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v6m0 0-3-3m3 3 3-3"/><path d="M4 13v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6"/></svg>`,
   emptyTray: `<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13h4l2 3h6l2-3h4"/><path d="M5.5 6h13l1.5 7v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-6l1.5-7Z"/></svg>`,
+  clock: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>`,
+  chat: `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12c0 4.4-4 8-9 8-1.3 0-2.6-.2-3.7-.7L3 20l1.1-4.4C3.4 14.4 3 13.2 3 12c0-4.4 4-8 9-8s9 3.6 9 8Z"/></svg>`,
 };
+
+// Fetches every image for a patient along with whether each has a prediction
+// yet, so uploads are visible immediately instead of only after classification.
+async function loadImagesWithStatus(patientId) {
+  const images = await api.listPatientImages(patientId);
+  const withStatus = await Promise.all(images.map(async (img) => {
+    try {
+      const preds = await api.getImagePredictions(img.image_id);
+      return { image: img, prediction: preds.length ? preds[preds.length - 1] : null };
+    } catch (e) {
+      return { image: img, prediction: null };
+    }
+  }));
+  return withStatus;
+}
+
+function renderImageStatusList(container, items, { emptyMessage, actionLabel, onAction }) {
+  if (!items.length) {
+    container.innerHTML = `<div class="empty-state">${ICONS.emptyTray}<div class="empty-state-title">Nothing here yet</div><div>${emptyMessage}</div></div>`;
+    return;
+  }
+  container.innerHTML = items.map(({ image, prediction }, idx) => {
+    const qualityGood = image.quality_status === "acceptable";
+    let statusHtml;
+    if (prediction) {
+      const sev = SEVERITY[prediction.dr_level] || SEVERITY[0];
+      statusHtml = `
+        <span class="sev-dot" style="background:${sev.color}"></span>${sev.label}
+        ${prediction.referable
+          ? '<span class="badge badge-danger" style="margin-left:8px">Refer</span>'
+          : '<span class="badge badge-success" style="margin-left:8px">Routine</span>'}`;
+    } else {
+      statusHtml = `<span class="badge badge-neutral">${ICONS.clock} Pending review</span>`;
+    }
+    const actionHtml = (!prediction && onAction)
+      ? `<button class="btn btn-secondary btn-sm" data-image-id="${image.image_id}" data-idx="${idx}">${actionLabel}</button>`
+      : "";
+    return `
+      <div class="image-row">
+        <img class="preview-thumb" src="${api.imageUrl(image.filename)}" onerror="this.style.visibility='hidden'" />
+        <div class="image-row-body">
+          <div class="image-row-top">
+            <strong>${formatDate(image.upload_time)}</strong>
+            ${qualityGood
+              ? '<span class="badge badge-success">Quality OK</span>'
+              : '<span class="badge badge-warning">Quality: recapture</span>'}
+          </div>
+          <div class="image-row-status">${statusHtml}</div>
+        </div>
+        ${actionHtml}
+      </div>`;
+  }).join("");
+
+  if (onAction) {
+    container.querySelectorAll("button[data-image-id]").forEach((btn) => {
+      btn.addEventListener("click", () => onAction(btn.dataset.imageId, btn));
+    });
+  }
+}
 
 const viewEl = document.getElementById("view");
 const bodyEl = document.body;
@@ -52,9 +113,11 @@ const DOCTOR_NAV = [
   { route: "add-patient", label: "Add patient", icon: "addPatient" },
   { route: "screen", label: "Screen a patient", icon: "screen" },
   { route: "records", label: "Records", icon: "records" },
+  { route: "chat", label: "Ask Retinova", icon: "chat" },
 ];
 const PATIENT_NAV = [
   { route: "my-screenings", label: "My screenings", icon: "screen" },
+  { route: "chat", label: "Ask Retinova", icon: "chat" },
 ];
 
 const routes = {
@@ -65,10 +128,11 @@ const routes = {
   screen: renderScreen,
   records: renderRecords,
   "my-screenings": renderMyScreenings,
+  chat: renderChat,
 };
 
-const DOCTOR_ROUTES = new Set(["dashboard", "add-patient", "screen", "records"]);
-const PATIENT_ROUTES = new Set(["my-screenings"]);
+const DOCTOR_ROUTES = new Set(["dashboard", "add-patient", "screen", "records", "chat"]);
+const PATIENT_ROUTES = new Set(["my-screenings", "chat"]);
 
 function renderSidebar() {
   const loggedIn = auth.isLoggedIn();
@@ -131,10 +195,10 @@ function navigate() {
   if (route === "login" || route === "signup" || !routes[route]) {
     route = data.role === "doctor" ? "dashboard" : "my-screenings";
   }
-  if (data.role === "doctor" && PATIENT_ROUTES.has(route) && !DOCTOR_ROUTES.has(route)) {
+  if (data.role === "doctor" && !DOCTOR_ROUTES.has(route)) {
     route = "dashboard";
   }
-  if (data.role === "patient" && DOCTOR_ROUTES.has(route)) {
+  if (data.role === "patient" && !PATIENT_ROUTES.has(route)) {
     route = "my-screenings";
   }
 
@@ -145,23 +209,7 @@ function navigate() {
 window.addEventListener("hashchange", navigate);
 window.addEventListener("DOMContentLoaded", () => {
   navigate();
-  pollHealth();
-  setInterval(pollHealth, 15000);
 });
-
-async function pollHealth() {
-  const dot = document.getElementById("api-dot");
-  const text = document.getElementById("api-status-text");
-  if (!dot) return;
-  try {
-    await api.health();
-    dot.className = "dot online";
-    text.textContent = "API connected";
-  } catch (e) {
-    dot.className = "dot offline";
-    text.textContent = "API unreachable";
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Login / signup
@@ -518,6 +566,12 @@ async function renderScreen() {
       <select class="select-inline" id="patient-select" style="width:100%"></select>
     </div>
 
+    <div class="card" id="pending-card" style="display:none">
+      <h2 class="card-title">Images for this patient</h2>
+      <p class="card-desc">Includes anything the patient uploaded themselves and hasn't been classified yet.</p>
+      <div id="pending-list"></div>
+    </div>
+
     <div class="card">
       <h2 class="card-title">2. Upload fundus image</h2>
       <p class="card-desc">JPEG or PNG. The image is checked for usable quality before classification.</p>
@@ -554,6 +608,39 @@ async function renderScreen() {
   } catch (e) {
     patientSelect.innerHTML = `<option value="">Could not load patients</option>`;
   }
+
+  async function refreshPendingList() {
+    const patientId = patientSelect.value;
+    const card = document.getElementById("pending-card");
+    const list = document.getElementById("pending-list");
+    if (!patientId) { card.style.display = "none"; return; }
+    card.style.display = "block";
+    list.innerHTML = `<div class="empty-state">Loading…</div>`;
+    try {
+      const items = await loadImagesWithStatus(patientId);
+      renderImageStatusList(list, items, {
+        emptyMessage: "No images uploaded for this patient yet.",
+        actionLabel: "Run classification",
+        onAction: async (imageId, btn) => {
+          btn.disabled = true;
+          btn.textContent = "Analyzing…";
+          try {
+            await api.predict(imageId);
+            toast("Classification complete");
+            refreshPendingList();
+          } catch (e) {
+            toast(e.message || "Classification failed", true);
+            btn.disabled = false;
+            btn.textContent = "Run classification";
+          }
+        },
+      });
+    } catch (e) {
+      list.innerHTML = apiErrorState(e);
+    }
+  }
+  patientSelect.addEventListener("change", refreshPendingList);
+  refreshPendingList();
 
   const dropzone = document.getElementById("dropzone");
   const fileInput = document.getElementById("file-input");
@@ -600,6 +687,7 @@ async function renderScreen() {
             : '<span class="badge badge-warning">Image quality: needs recapture</span>'}
         </div>`);
       document.getElementById("predict-card").style.display = "block";
+      refreshPendingList();
     } catch (e) {
       toast(e.message || "Upload failed", true);
     } finally {
@@ -727,13 +815,16 @@ async function renderMyScreenings() {
       </p>
     `;
 
-    const imageById = Object.fromEntries(summary.images.map((i) => [i.image_id, i]));
-    renderPredictionsTable(
-      document.getElementById("my-table"),
-      summary.predictions,
-      imageById,
-      "Upload a fundus image below to get your first screening result."
+    const predictionByImageId = Object.fromEntries(
+      summary.predictions.map((p) => [p.image_id, p])
     );
+    const items = summary.images.map((img) => ({
+      image: img,
+      prediction: predictionByImageId[img.image_id] || null,
+    }));
+    renderImageStatusList(document.getElementById("my-table"), items, {
+      emptyMessage: "Upload a fundus image below to get started.",
+    });
   } catch (e) {
     document.getElementById("profile-card").innerHTML = apiErrorState(e);
   }
@@ -780,5 +871,80 @@ async function renderMyScreenings() {
       uploadBtn.disabled = false;
       uploadBtn.textContent = "Upload image";
     }
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Chat assistant
+// ---------------------------------------------------------------------------
+let chatHistory = [];
+
+function renderChat() {
+  viewEl.innerHTML = `
+    <div class="page-header">
+      <h1 class="page-title">Ask Retinova</h1>
+      <p class="page-desc">Learn about diabetic retinopathy, your screening results, and general eye care.</p>
+    </div>
+    <div class="chat-shell">
+      <div class="chat-disclaimer">
+        This assistant gives general education only — it doesn't diagnose or prescribe
+        treatment. For any medication or treatment decision, and always in an emergency
+        (sudden vision loss, severe eye pain), contact a doctor directly.
+      </div>
+      <div class="chat-messages" id="chat-messages"></div>
+      <div class="chat-input-row">
+        <input id="chat-input" type="text" placeholder="Ask about symptoms, results, or eye care…" />
+        <button class="btn btn-primary" id="chat-send">Send</button>
+      </div>
+    </div>
+  `;
+
+  chatHistory = [];
+  const messagesEl = document.getElementById("chat-messages");
+  const input = document.getElementById("chat-input");
+  const sendBtn = document.getElementById("chat-send");
+
+  addBubble("assistant", "Hi — I can help explain diabetic retinopathy, what a screening result means, or general eye-care questions. What's on your mind?");
+
+  function addBubble(role, text, isError = false) {
+    const el = document.createElement("div");
+    el.className = `chat-bubble ${role}${isError ? " error" : ""}`;
+    el.textContent = text;
+    messagesEl.appendChild(el);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    return el;
+  }
+
+  async function send() {
+    const message = input.value.trim();
+    if (!message) return;
+    input.value = "";
+    addBubble("user", message);
+
+    const typingEl = document.createElement("div");
+    typingEl.className = "chat-typing";
+    typingEl.textContent = "Retinova is typing…";
+    messagesEl.appendChild(typingEl);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+
+    sendBtn.disabled = true;
+    try {
+      const result = await api.chat(message, chatHistory);
+      typingEl.remove();
+      addBubble("assistant", result.reply);
+      chatHistory.push({ role: "user", content: message });
+      chatHistory.push({ role: "assistant", content: result.reply });
+    } catch (e) {
+      typingEl.remove();
+      addBubble("assistant", e.message || "Something went wrong. Please try again.", true);
+    } finally {
+      sendBtn.disabled = false;
+      input.focus();
+    }
+  }
+
+  sendBtn.addEventListener("click", send);
+  input.addEventListener("keydown", (ev) => {
+    if (ev.key === "Enter") send();
   });
 }

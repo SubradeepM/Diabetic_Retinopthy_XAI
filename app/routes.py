@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from . import models, schemas
 from .database import get_db
+from . import chat as chat_module
 from .auth import (
     hash_password,
     verify_password,
@@ -85,6 +86,31 @@ def login(payload: schemas.LoginRequest, db: Session = Depends(get_db)):
 @router.get("/auth/me", response_model=schemas.UserOut)
 def get_me(current_user: models.User = Depends(get_current_user)):
     return current_user
+
+
+# ---------------------------------------------------------------------------
+# Chat assistant (education/triage only — see app/chat.py for the guardrails)
+# ---------------------------------------------------------------------------
+@router.post("/chat", response_model=schemas.ChatResponse)
+def chat(
+    payload: schemas.ChatRequest,
+    _user: models.User = Depends(get_current_user),
+):
+    if not chat_module.is_configured():
+        raise HTTPException(
+            status_code=503,
+            detail="The AI assistant isn't set up yet. Ask the site administrator to add an ANTHROPIC_API_KEY.",
+        )
+
+    history = [{"role": t.role, "content": t.content} for t in (payload.history or [])]
+    history.append({"role": "user", "content": payload.message})
+
+    try:
+        reply = chat_module.get_assistant_reply(history)
+    except RuntimeError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+    return schemas.ChatResponse(reply=reply)
 
 
 # ---------------------------------------------------------------------------

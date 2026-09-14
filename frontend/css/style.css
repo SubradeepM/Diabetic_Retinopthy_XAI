@@ -334,6 +334,89 @@ tbody tr:last-child td { border-bottom: none; }
 .empty-state svg { margin-bottom: 12px; opacity: 0.55; }
 .empty-state-title { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
 
+/* ---- Image status rows (pending review / classified) ---- */
+.image-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.image-row:last-child { border-bottom: none; }
+.image-row-body { flex: 1; min-width: 0; }
+.image-row-top { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; flex-wrap: wrap; }
+.image-row-status { font-size: 13px; color: var(--text-muted); display: flex; align-items: center; }
+.badge-neutral svg { margin-right: 4px; vertical-align: -2px; }
+.btn-sm { padding: 7px 12px; font-size: 13px; }
+
+/* ---- Chat assistant ---- */
+.chat-shell {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 220px);
+  min-height: 420px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow: hidden;
+}
+.chat-disclaimer {
+  padding: 12px 18px;
+  background: #FDF1DE;
+  color: #8A5A0C;
+  font-size: 12.5px;
+  border-bottom: 1px solid var(--border);
+  line-height: 1.5;
+}
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.chat-bubble {
+  max-width: 72%;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+.chat-bubble.user {
+  align-self: flex-end;
+  background: var(--primary-strong);
+  color: #FFFFFF;
+  border-bottom-right-radius: 3px;
+}
+.chat-bubble.assistant {
+  align-self: flex-start;
+  background: var(--bg);
+  color: var(--text);
+  border-bottom-left-radius: 3px;
+}
+.chat-bubble.assistant.error {
+  background: #FBE7E7;
+  color: #C22F3B;
+}
+.chat-input-row {
+  display: flex;
+  gap: 10px;
+  padding: 14px;
+  border-top: 1px solid var(--border);
+}
+.chat-input-row input {
+  flex: 1;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 14px;
+}
+.chat-input-row input:focus { outline: 2px solid var(--primary); }
+.chat-typing { align-self: flex-start; color: var(--text-muted); font-size: 13px; font-style: italic; }
+
 /* ---- Auth screens ---- */
 .auth-shell {
   min-height: 100vh;

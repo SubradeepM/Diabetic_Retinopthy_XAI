@@ -39,6 +39,20 @@ class UserOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ChatTurn(BaseModel):
+    role: str  # "user" or "assistant"
+    content: str
+
+
+class ChatRequest(BaseModel):
+    message: str
+    history: Optional[list[ChatTurn]] = None
+
+
+class ChatResponse(BaseModel):
+    reply: str
+
+
 class PatientCreate(BaseModel):
     patient_id: str
     age: Optional[int] = None

@@ -38,6 +38,24 @@ retinova-backend/
 └── README.md
 ```
 
+## Chat assistant
+
+An "Ask Retinova" page is available to both patients and doctors — a chat
+assistant for **education and triage only**:
+
+- Explains diabetic retinopathy, symptoms, and what a screening result means
+- Describes *categories* of treatment in general terms, without recommending
+  a specific treatment or medication for anyone's individual case
+- Immediately tells users to seek urgent in-person care for red-flag symptoms
+  (sudden vision loss, severe eye pain, new floaters/flashes, eye injury)
+- Never names specific drugs, dosages, or tells anyone to start/stop/change
+  a medication — those decisions always get redirected to "ask your doctor"
+
+Powered by the Anthropic API. Requires your own `ANTHROPIC_API_KEY` (see
+`.env.example`) — get one at console.anthropic.com (pay-as-you-go billing,
+separate from any Claude.ai subscription). If the key isn't set, the chat
+page shows a clear "not configured" message instead of erroring.
+
 ## Authentication
 
 Both patients and doctors have their own accounts.
